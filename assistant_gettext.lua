@@ -197,6 +197,10 @@ function GetText_mt.__index.changeLang(new_lang)
     local what = nil
     while true do
         local line = po:read("*l")
+        -- Strip trailing carriage return for Windows CRLF line endings
+        if line then
+            line = line:gsub("\r$", "")
+        end
         if line == nil or line == "" then
             if data.msgid and data.msgid_plural and data["msgstr[0]"] then
                 for k, v in pairs(data) do
