@@ -229,7 +229,7 @@ local function showFeatureDialog(assistant, feature_type, title, author, progres
               content = answer
             })
             local normalized_answer = normalizeMarkdownHeadings(answer, 3, 6) or answer
-            local additional_text = "\n\n### ⮞ User: \n" .. (type(user_question) == "string" and user_question or (user_question.text or user_question)) .. "\n\n### ⮞ Assistant:\n" .. normalized_answer
+            local additional_text = "\n\n" .. normalized_answer
             viewer:update(viewer.text .. additional_text)
             
             if viewer.scroll_text_w then

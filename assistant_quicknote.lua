@@ -97,7 +97,7 @@ function QuickNote:saveNote(note_text, highlighted_text)
 
   local timestamp = os.date("%Y-%m-%d %H:%M:%S")
   local highlighted_text_lbl = _("Highlighted text:")
-  local user_lbl = _("User:")
+  local note_lbl = _("Note:")
   local quick_note_lbl = _("Quick Note")
 
   local page_info = assistant_utils.getPageInfo(self.assistant.ui)
@@ -109,11 +109,11 @@ function QuickNote:saveNote(note_text, highlighted_text)
   end
   local log_entry
   if processed_highlighted ~= "" and processed_note ~= "" then
-    log_entry = string.format("# [%s]%s\n## %s\n\n__%s__ \n%s\n\n### ⮞ %s \n\n%s\n\n", timestamp, page_info, quick_note_lbl, highlighted_text_lbl, processed_highlighted, user_lbl, processed_note)
+    log_entry = string.format("# [%s]%s\n## %s\n\n__%s__ \n%s\n\n### ⮞ %s \n\n%s\n\n", timestamp, page_info, quick_note_lbl, highlighted_text_lbl, processed_highlighted, note_lbl, processed_note)
   elseif processed_note == "" then
     log_entry = string.format("# [%s]%s\n## %s\n\n__%s__ \n%s\n\n", timestamp, page_info, quick_note_lbl, highlighted_text_lbl, processed_highlighted)
   else
-    log_entry = string.format("# [%s]\n## %s\n\n### ⮞ %s \n\n%s\n\n", timestamp, quick_note_lbl, user_lbl, processed_note)
+    log_entry = string.format("# [%s]\n## %s\n\n%s\n\n", timestamp, quick_note_lbl, processed_note)
   end
 
   assistant_utils.saveToNotebookFile(self.assistant, log_entry)

@@ -247,7 +247,7 @@ function ChatGPTViewer:init()
     width = self.width,
     align = "left",
     with_bottom_line = true,
-    title = "Assistant: " .. (self.title or ""),
+    title = self.title or "",
     title_face = self.title_face,
     title_multilines = self.title_multilines,
     title_shrink_font_to_fit = self.title_shrink_font_to_fit,

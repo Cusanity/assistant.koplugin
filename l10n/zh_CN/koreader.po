@@ -100,15 +100,15 @@ msgstr  "查询"
 
 #: ../assistant_dictdialog.lua:214
 msgid   "Analyzing book context for Term X-Ray..."
-msgstr  "正在分析书籍上下文以进行术语透视..."
+msgstr  "正在分析书籍上下文以进行X-Ray..."
 
 #: ../assistant_dictdialog.lua:291 ../assistant_prompts.lua:21 ../main.lua:683
 msgid   "Term X-Ray"
-msgstr  "术语透视"
+msgstr  "X-Ray"
 
 #: ../assistant_dictdialog.lua:292
 msgid   "Loading Term X-Ray ..."
-msgstr  "正在加载术语透视…"
+msgstr  "正在加载X-Ray…"
 
 #: ../assistant_dictdialog.lua:308 ../assistant_prompts.lua:97 ../main.lua:697
 msgid   "Dictionary"
@@ -480,7 +480,7 @@ msgstr  "在词典弹窗显示 AI 维基"
 
 #: ../assistant_settings.lua:441
 msgid   "Show Term X-Ray(AI) in Dictionary Popup"
-msgstr  "在词典弹窗中显示术语透视(AI)"
+msgstr  "在词典弹窗中显示X-Ray"
 
 #: ../assistant_settings.lua:449
 msgid   "Show Custom Prompts in Dictionary Popup"

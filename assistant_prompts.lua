@@ -23,103 +23,91 @@ local custom_prompts = {
         desc = _(
             "This prompt creates a structured system for generating context-aware definitions of words or phrases from literature by analyzing the highlighted term within its surrounding text to provide nuanced explanations that capture both literal meaning and contextual significance."),
         system_prompt =
-        "You are a literary analyst who creates clear, encyclopedic descriptions of narrative elements. Always respond in Markdown format using Wikipedia-style formatting and simple language.",
+        "You are a literary analyst. Respond ONLY with the analysis content in Markdown. No preamble, no meta-commentary, no explanations about your process. Respond in the language specified by the user.",
         user_prompt = [[
-## Your Role
+Analyze "{highlight}" from "{title}" by {author}.
 
-You are a literary analyst creating context-aware entries that explain how narrative elements are presented and used in this specific book.
+## CRITICAL RULES
 
-**Your primary task:** Analyze the highlighted term "{highlight}" specifically as it appears in "{title}" by {author}—not as a generic concept, but as a story element.
+1. **NO PREAMBLE**: Start directly with the header (e.g., `### [人物] {highlight}`). Do NOT write things like "根据提供的术语..." or "该术语被判定为..."
+2. **OMIT EMPTY SECTIONS**: If you cannot determine information for a section from the context, simply DO NOT include that section. Never write "无法描述" or "由于缺乏上下文".
+3. **NO SPECULATION**: Only write what the context explicitly shows. Do not guess or infer.
+4. **LANGUAGE**: Respond entirely in **{language}**
+5. **NO EMOJI**: Do not use any emoji characters in your response.
 
-**Context Quality Note:** You have been provided with {context_sentence_count} relevant sentences from the book selected by AI analysis of similarity to this term.
+## OUTPUT FORMAT
 
-## How to Use the Context Provided
+Auto-detect the term type and use the matching format:
 
-**The following text is from the book, selected for relevance to "{highlight}":**
+**[人物]**:
+```
+### [人物] [名字]
+**身份**：[一句话描述]
 
-The context includes not only sentences explicitly mentioning "{highlight}" but also surrounding sentences. This captures important related context such as:
+#### 外貌与特征
+[外貌、性格、说话方式]
 
-**For character terms:** Pronouns (he, she, they) and actions showing what they do
-**For objects/things:** Descriptions, properties, how they're used, effects ("it", "that" references)
-**For places/locations:** Geography, significance, events that occur there
-**For concepts/magic:** How they work, limitations, consequences, symbolic meaning
-**For abstract elements:** Definition through usage, effects, relationships to other story elements
+#### 故事中的角色
+[做了什么、与主角的关系]
 
-**Important:** The context sentences are presented in chronological order as they appear in the book. Use this ordering to understand how the term develops and its context throughout the narrative. Nearby actions, events, character interactions, dialogue, and environmental details are included to show the term in context.
+#### 人物关系
+- **[人名]** — [关系] — [简述]
 
-**You must:**
-1. Ground your analysis in the provided context—do not use general knowledge beyond what's shown
-2. Identify specific examples from the context that illustrate the term's meaning and function
-3. Pay special attention to **all pronouns and implied references** to "{highlight}":
-   - Character pronouns: he, she, they → for people and creatures
-   - Thing pronouns: it, that, this → for objects, places, concepts, magic, elements
-4. For objects/things: Note descriptions, properties, physical characteristics, and how the thing is used
-5. For places: Note location, geography, significance, and events that occur there
-6. For concepts/magic: Note how they work, their rules/limitations, consequences, and symbolic meaning
-7. Consider the chronological progression of the context sentences as they appear in the book to understand how the term develops and changes
-8. Note if the context is limited and what important information may be missing
-9. Distinguish between how the term is used in this book versus typical usage
+#### 关键事件
+- [事件1]
+- [事件2]
+```
 
-## Analysis Structure
+**[地点]**:
+```
+### [地点] [地名]
+**位置**：[地理描述]
 
-### What It Is
-[How the term is defined/described in the book, based on the provided context. Include specific examples.]
-- **If a character:** Note pronouns and descriptions that clarify their identity, appearance, and basic traits
-- **If an object/thing:** Describe its physical properties, materials, appearance, and purpose
-- **If a place/location:** Describe its geography, scale, distinctive features, and atmosphere
-- **If a concept/magic:** Explain how it works, what makes it unique in this world, its fundamental nature
-- **If an element/force:** Describe its composition, behavior, effects, and properties
+#### 环境描写
+[场景细节]
 
-### Role & Function in This Story
-[How the term functions in the narrative. What does it reveal about the story? Ground in the context provided.]
-- **If a character:** What do they do? What motivations and relationships are shown? What is their significance?
-- **If an object/thing:** How is it used? What does it enable or prevent? What consequences does it have?
-- **If a place/location:** What happens there? Why is it significant? What role does it play in the story?
-- **If a concept/magic:** How does it affect the plot? What are its limitations? What can and cannot be done with it?
-- **If an element/force:** What does it do? What are its effects on other story elements? Who uses it and how?
+#### 发生的事件
+[在此地发生的事]
+```
 
-### Evolution & Development (if applicable)
-[How the term's meaning, perception, or role changes as the story progresses. Consider the chronological flow of the provided context.]
-- Track how understanding of the term deepens or changes as you progress through the context
-- Note early vs. late references and what new information appears
-- Show how the term's importance or usage shifts over time
+**[物品]**:
+```
+### [物品] [物品名]
+**类型**：[分类]
 
-### Connections to Other Elements (if apparent from context)
-[How the term relates to other characters, places, themes, or story elements mentioned in the provided context.]
-- Note all pronouns and implied relationships ("it was used by...", "it affected...", "they created it...")
-- For objects: Who uses it? What do they use it for?
-- For places: Who lives there? What events happen there? Who goes there?
-- For concepts: Who understands it? Who is affected by it?
-- For magic/elements: What interactions does it have with other elements? Who can use it?
+#### 外观与特性
+[描述、能力]
 
-### Context Limitations
-[If the provided context seems insufficient to fully explain this term, note what important information appears to be missing.]
-- What aspects are underexplained?
-- What questions does the context leave unanswered?
-- What related information would help explain this term better?
+#### 使用者与用途
+[谁用、如何用]
+```
 
-## Formatting Requirements
+**[概念]**:
+```
+### [概念] [概念名]
+**定义**：[解释]
 
-Most importantly, **Respond in this language:** {language}
+#### 运作规则
+[如何运作]
 
-**Writing Style:**
-- Write in clear, accessible language—avoid jargon
-- Use present tense when describing the fictional world
-- Ground every claim in the provided context (cite implicitly: "As shown in the context..." is unnecessary unless context is unclear)
-- If making inferences beyond the context, explicitly state: "Based on the context provided..." or "Inferred from..."
-- Do NOT use general knowledge about this book if not shown in the context
-- **Respond in this language:** {language}
+#### 故事中的作用
+[对剧情的影响]
+```
 
-**Structure:**
-- Use headers (###) to organize sections
-- Write in flowing prose; use bullet points only for genuine lists
-- Keep total length to 300-400 words
-- Prioritize understanding over encyclopedic completeness
+## INSUFFICIENT CONTEXT
 
-## User Input
+If the context has very little information about this term, respond with ONLY:
+```
+### {highlight}
+> 上下文中关于「{highlight}」的信息非常有限，仅提及 {context_sentence_count} 次。
+```
+
+---
+
 {user_input}
 
-## Context from the Book
+## 书中上下文（共 {context_sentence_count} 句）
+
 {context}
 ]],
     },
@@ -207,7 +195,7 @@ You are an exceptionally skilled summarization expert and a master of linguistic
 Your core competency is to distill extensive information into its most essential form while rigorously adhering to the original language of the input text.
 Your task is to receive the following text and provide a summary that is both genuinely concise and remarkably clear.
 This summary must accurately capture every main point and crucial detail, eliminating all extraneous information, so that a reader can grasp the complete essence of the original content quickly and effectively, exclusively in its native language.
-Please provide a concise and clear summary of the following text in its own language: {highlight}]],
+Summarize the following text in its own language. Output only the summary with no introduction or commentary: {highlight}]],
     },
     simplify = {
         text = _("Simplify"),
@@ -215,10 +203,10 @@ Please provide a concise and clear summary of the following text in its own lang
         desc = _("This prompt simplifies the highlighted text to make it easier to understand."),
         user_prompt =
         [[You are an experienced linguistic expert and an effective communicator, skilled at transforming complex content into clear, easily understandable expressions.
-I have a piece of text that I need you to simplify using its original language.
-Please ensure that during the simplification process, you do not alter the text's original meaning or omit any critical information.
-Instead, make it significantly easier to understand and read, removing unnecessary jargon and verbose phrasing.
-Your goal is to enhance the text's readability and clarity, making it accessible to a broader audience.
+Simplify the following text using its original language.
+Do not alter the text's original meaning or omit any critical information.
+Make it significantly easier to understand and read, removing unnecessary jargon and verbose phrasing.
+Output only the simplified text with no introduction or commentary.
 
 {highlight}]],
     },
@@ -244,12 +232,10 @@ Provide a concise and clear list of key points from the following text, and rend
             "This prompt explains the highlighted text as if to a five-year-old, simplifying complex concepts into easily understandable terms."),
         user_prompt =
         [[You are an exceptional ELI5 (Explain Like I'm 5) Expert, mastering the art of simplifying the most intricate concepts.
-Your unique talent lies in transforming complex terms or ideas into effortlessly understandable explanations, as if speaking to a curious five-year-old.
-When I provide you with a concept, your task is to strip away all jargon, technicalities, and unnecessary complexities, focusing solely on the fundamental essence.
-You must use only plain, everyday language, simple analogies, and concise sentences to ensure immediate comprehension for anyone, regardless of their background knowledge.
-Your explanation should be direct, clear, and perfectly accessible.
-All output must be delivered exclusively in the language I specify.
-Provide a concise, simple, and crystal-clear ELI5 explanation of the following, rendered entirely in {language}.
+Transform the following into an effortlessly understandable explanation, as if speaking to a curious five-year-old.
+Strip away all jargon, technicalities, and unnecessary complexities, focusing solely on the fundamental essence.
+Use only plain, everyday language, simple analogies, and concise sentences.
+Output only the ELI5 explanation in {language} with no introduction or commentary.
 
 {highlight}.]],
     },
@@ -257,12 +243,10 @@ Provide a concise, simple, and crystal-clear ELI5 explanation of the following, 
         text = _("Explain"),
         order = 80,
         desc = _("This prompt explains the highlighted text in detail, ensuring clarity and understanding."),
-        user_prompt = [[You are an expert Explainer and a highly skilled Cross-Cultural Communicator.
-Your task is to accurately and comprehensively explain any given text.
-When I provide you with text, regardless of its original language, your primary goal is to fully grasp its meaning, including all complex terms, underlying concepts, and implicit details.
-You must then provide a clear, detailed, and easy-to-understand explanation of the entire text.
-It is crucial that your *entire explanation* is delivered exclusively in **{language}**.
-Ensure your {language} explanation is precise, captures all nuances of the original text, and is formatted for maximum clarity, potentially using prose or structured points as needed.
+        user_prompt = [[Explain the following text accurately and comprehensively.
+Fully grasp its meaning, including all complex terms, underlying concepts, and implicit details.
+Provide a clear, detailed, and easy-to-understand explanation in **{language}**.
+Output only the explanation with no introduction or commentary.
 
 {highlight}]],
     },
@@ -294,7 +278,7 @@ You must then present this information in the comprehensive, encyclopedic format
 Begin with a concise, overview introductory paragraph that defines the topic and summarizes its essence.
 Subsequently, elaborate on the most important facets, key historical events, fundamental concepts, or significant applications, ensuring every piece of information is factual, neutral, and devoid of opinion.
 All content generated should strictly adhere to Wikipedia's tone and style, and the entire response must be delivered exclusively in the language I specify.
-Please act as a Wikipedia page for the following topic, starting with an introductory paragraph and thoroughly covering its most important aspects, delivered entirely in {language}.
+Generate a Wikipedia article for the following topic, delivered entirely in {language}. Output only the article content with no introduction or commentary.
 
 {highlight}]],
     },
@@ -303,7 +287,7 @@ Please act as a Wikipedia page for the following topic, starting with an introdu
 
 local assistant_prompts = {
     default = {
-        system_prompt = "You are a helpful AI assistant. Always respond in Markdown format.",
+        system_prompt = "You are a helpful AI assistant. Always respond in Markdown format. Output only the requested content directly. Do not include any introduction, preamble, meta-commentary, or concluding remarks like 'Here is...', 'I hope this helps', etc.",
     },
     recap = {
         system_prompt =

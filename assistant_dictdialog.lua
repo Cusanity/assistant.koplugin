@@ -51,90 +51,6 @@ local function expandContextWithSurroundings(all_sentences, selected_indices, co
     return expanded_sentences
 end
 
--- Filter text to find sentences containing the highlighted term with surrounding context
-local function filterTextForTerm(text, highlighted_term, language_code, configuration)
-    if not text or not highlighted_term or highlighted_term == "" then
-        return nil
-    end
-
-    local LexRankLanguages = require("assistant_lexrank_languages")
-
-    -- Simple sentence splitting (same logic as LexRank)
-    local sentences = {}
-    local current_sentence = ""
-
-    for i = 1, #text do
-        local char = text:sub(i, i)
-        current_sentence = current_sentence .. char
-
-        if char:match("[.!?;]") then
-            local trimmed = current_sentence:gsub("^%s*(.-)%s*$", "%1")
-            if #trimmed > 10 then -- Minimum sentence length
-                table.insert(sentences, trimmed)
-            end
-            current_sentence = ""
-        end
-    end
-
-    -- Add remaining text as sentence if it's long enough
-    local trimmed = current_sentence:gsub("^%s*(.-)%s*$", "%1")
-    if #trimmed > 10 then
-        table.insert(sentences, trimmed)
-    end
-
-    -- Find sentences containing the term (case-insensitive)
-    local matching_indices = {}
-    local term_lower = highlighted_term:lower()
-
-    for i, sentence in ipairs(sentences) do
-        if sentence:lower():find(term_lower, 1, true) then -- true = plain text search
-            table.insert(matching_indices, i)
-        end
-    end
-
-    -- If no direct matches, try language-aware stemming
-    if #matching_indices == 0 then
-        local stemmed_term = LexRankLanguages.stem_word(highlighted_term, language_code)
-        if stemmed_term ~= term_lower then -- Only if stemming actually changed the word
-            for i, sentence in ipairs(sentences) do
-                if sentence:lower():find(stemmed_term, 1, true) then
-                    table.insert(matching_indices, i)
-                end
-            end
-        end
-    end
-
-    -- If still no matches, return nil (will trigger fallback)
-    if #matching_indices == 0 then
-        return nil
-    end
-
-    -- Include larger context sentences around matches for better coverage
-    local context_window = koutil.tableGetValue(CONFIGURATION, "features", "term_filter_context_window") or 5 -- sentences before and after
-    local selected_indices = {}
-
-    for _, idx in ipairs(matching_indices) do
-        for context_idx = math.max(1, idx - context_window), math.min(#sentences, idx + context_window) do
-            selected_indices[context_idx] = true
-        end
-    end
-
-    -- Build filtered text from selected sentences
-    local filtered_sentences = {}
-    for i = 1, #sentences do
-        if selected_indices[i] then
-            table.insert(filtered_sentences, sentences[i])
-        end
-    end
-
-    -- Require minimum amount of text to make LexRank worthwhile
-    if #filtered_sentences < 3 then
-        return nil
-    end
-
-    return table.concat(filtered_sentences, " ")
-end
-
 local function showDictionaryDialog(assistant, highlightedText, message_history, prompt_type)
     local CONFIGURATION = assistant.CONFIGURATION
     local Querier = assistant.querier
@@ -208,112 +124,62 @@ local function showDictionaryDialog(assistant, highlightedText, message_history,
     local dict_language = assistant.settings:readSetting("response_language") or assistant.ui_language
 
     if prompt_type == "term_xray" then
-        -- Show loading dialog immediately to avoid app appearing frozen during LexRank processing
-        local context_loading_msg = InfoMessage:new{
-            icon = "book.opened",
-            text = _("Analyzing book context for Term X-Ray...")
-        }
-        UIManager:show(context_loading_msg)
-        UIManager:forceRePaint()  -- Force immediate display before blocking LexRank operation
-
-        -- For term_xray, use LexRank to extract relevant context from book text
-        -- OPTIMIZED: Single LexRank call with score-based filtering (instead of 3 separate calls)
-        local LexRank = require("assistant_lexrank")
-        local LexRankLanguages = require("assistant_lexrank_languages")
-
+        -- FAST MODE: Simple text search for sentences containing the term
+        -- No LexRank - just find matching sentences with surrounding context
+        
         -- Get book text up to current reading position
         local book_text = assistant_utils.extractBookTextForAnalysis(CONFIGURATION, ui)
 
         if book_text and #book_text > 100 then
-            -- Tokenize sentences once (will be reused for all filtering and context expansion)
-            local language_module = LexRankLanguages.get_language_module(dict_language)
+            -- Simple sentence splitting (supports English and Chinese punctuation)
             local all_sentences = {}
             local current_sentence = ""
-            local delim_pattern = "[" .. table.concat(language_module.sentence_delimiters, "") .. "]"
 
-            for i = 1, #book_text do
-                local char = book_text:sub(i, i)
+            -- Use utf8 iteration to properly handle multi-byte Chinese characters
+            for char in book_text:gmatch("([%z\1-\127\194-\244][\128-\191]*)") do
                 current_sentence = current_sentence .. char
 
-                if char:match(delim_pattern) then
+                -- English: .!?; | Chinese: 。！？；
+                if char:match("[.!?;]") or char == "。" or char == "！" or char == "？" or char == "；" then
                     local trimmed = current_sentence:gsub("^%s*(.-)%s*$", "%1")
-                    if #trimmed >= language_module.min_sentence_length then
+                    if #trimmed > 10 then
                         table.insert(all_sentences, trimmed)
                     end
                     current_sentence = ""
                 end
             end
 
-            -- Add remaining text as sentence if it's long enough
+            -- Add remaining text as sentence if long enough
             local trimmed = current_sentence:gsub("^%s*(.-)%s*$", "%1")
-            if #trimmed >= language_module.min_sentence_length then
+            if #trimmed > 10 then
                 table.insert(all_sentences, trimmed)
             end
 
-            -- OPTIMIZED: Single LexRank call with return_with_metadata=true
-            -- Run with the lowest threshold to get all candidates with scores
-            local threshold_very_inclusive = koutil.tableGetValue(CONFIGURATION, "features", "lexrank_threshold_very_inclusive") or 0.005
-            local all_candidates = LexRank.rank_sentences(book_text, threshold_very_inclusive, 0.1, dict_language, CONFIGURATION.features, true)
+            -- Find ALL sentences containing the term (case-insensitive)
+            local matching_indices = {}
+            local term_lower = highlightedText:lower()
 
-            -- Filter candidates at different levels using their scores (no re-tokenization needed!)
-            local max_characters = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_max_characters") or 100000
-            local selected_indices = {}
-            local seen_indices = {}
-
-            if all_candidates and #all_candidates > 0 then
-                -- Calculate score threshold for term-specific sentences
-                local threshold_term_specific = koutil.tableGetValue(CONFIGURATION, "features", "lexrank_threshold_term_specific") or 0.01
-                local threshold_general = koutil.tableGetValue(CONFIGURATION, "features", "lexrank_threshold_general") or 0.01
-
-                -- Stage 1: Find term-specific matches and add high-scoring sentence around them
-                local filtered_text = filterTextForTerm(book_text, highlightedText, dict_language, CONFIGURATION)
-                if filtered_text and #filtered_text > 100 then
-                    for _, candidate in ipairs(all_candidates) do
-                        -- Check if sentence appears in filtered (term-specific) text
-                        if filtered_text:find(candidate.sentence, 1, true) and candidate.score >= threshold_term_specific then
-                            if not seen_indices[candidate.index] then
-                                table.insert(selected_indices, candidate.index)
-                                seen_indices[candidate.index] = true
-                            end
-                        end
-                    end
-                end
-
-                -- Stage 2: Add high-scoring general context sentences
-                for _, candidate in ipairs(all_candidates) do
-                    if not seen_indices[candidate.index] and candidate.score >= threshold_general then
-                        table.insert(selected_indices, candidate.index)
-                        seen_indices[candidate.index] = true
-                    end
-                end
-
-                -- Stage 3: Add remaining candidates for comprehensive coverage
-                for _, candidate in ipairs(all_candidates) do
-                    if not seen_indices[candidate.index] then
-                        table.insert(selected_indices, candidate.index)
-                        seen_indices[candidate.index] = true
-                    end
+            for i, sentence in ipairs(all_sentences) do
+                if sentence:lower():find(term_lower, 1, true) then
+                    table.insert(matching_indices, i)
                 end
             end
 
-            -- Sort indices to maintain document order
-            table.sort(selected_indices)
-
-            -- OPTIMIZED: Expand context using indices (no re-tokenization!)
-            local context_before = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_context_sentences_before") or 5
-            local context_after = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_context_sentences_after") or 5
+            -- Expand context around matching sentences
+            local context_before = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_context_sentences_before") or 2
+            local context_after = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_context_sentences_after") or 2
             local context_sentences = expandContextWithSurroundings(
                 all_sentences,
-                selected_indices,
+                matching_indices,
                 context_before,
                 context_after
             )
 
-            -- Concatenate context sentences without numbering
-            -- Sentences are sent in chronological order from the book, which the LLM is instructed to consider
+            -- Concatenate context sentences
             context_text = table.concat(context_sentences, " ")
 
-            -- Truncate context to max_characters limit
+            -- Truncate to max characters limit
+            local max_characters = koutil.tableGetValue(CONFIGURATION, "features", "term_xray_max_characters") or 50000
             if #context_text > max_characters then
                 context_text = context_text:sub(1, max_characters)
             end
@@ -323,9 +189,6 @@ local function showDictionaryDialog(assistant, highlightedText, message_history,
             -- Fallback to standard context if book text is too short
             context_text = prev_context .. highlightedText .. next_context
         end
-
-        -- Close the context loading dialog (LexRank processing is complete)
-        UIManager:close(context_loading_msg)
     else
         -- Standard dictionary context extraction
         if ui.highlight and ui.highlight.getSelectedWordContext then
@@ -425,13 +288,19 @@ local function showDictionaryDialog(assistant, highlightedText, message_history,
         return
     end
 
-    local function createResultText(highlightedText, answer)
+    local function createResultText(highlightedText, answer, is_term_xray)
         local result_text
         local render_markdown = koutil.tableGetValue(CONFIGURATION, "features", "render_markdown") or true
-        -- Limit prev_context to last 100 characters and next_context to first 100 characters
+        local normalized_answer = assistant_utils.normalizeMarkdownHeadings(answer, 2, 6) or answer
+        
+        -- For Term X-Ray, just return the AI response directly (it has its own header)
+        if is_term_xray then
+            return normalized_answer
+        end
+        
+        -- For Dictionary, show the word in context header
         local prev_context_limited = string.sub(prev_context, -100)
         local next_context_limited = string.sub(next_context, 1, 100)
-        local normalized_answer = assistant_utils.normalizeMarkdownHeadings(answer, 2, 6) or answer
         if render_markdown then
             -- in markdown mode, outputs markdown formatted highlighted text
             result_text = T("... %1 **%2** %3 ...\n\n%4", prev_context_limited, highlightedText, next_context_limited, normalized_answer)
@@ -443,7 +312,7 @@ local function showDictionaryDialog(assistant, highlightedText, message_history,
         return result_text
     end
 
-    local result = createResultText(highlightedText, ret)
+    local result = createResultText(highlightedText, ret, prompt_type == "term_xray")
     local chatgpt_viewer
 
     local function handleAddToNote()
